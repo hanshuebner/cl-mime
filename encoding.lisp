@@ -29,7 +29,7 @@
       (content mime)
       (let ((content (decode-content mime)))
 	(ecase (content-transfer-encoding mime)
-	  (:7bit content)
+	  ((:7bit :8bit) content)
 	  (:base64 
 	   (typecase content
 	     (string (string-to-base64-string content :columns 75))
@@ -40,7 +40,7 @@
 
 (defun decode-content (mime)
   (ecase (content-encoding mime)
-    (:7bit (content mime))
+    ((:7bit :8bit) (content mime))
     (:base64 (base64-string-to-usb8-array (content mime)))
     (:quoted-printable (qprint:decode (content mime)))))
 
