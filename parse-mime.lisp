@@ -185,11 +185,13 @@ returns all comments contained within that string"
   "Takes a string of parameters and returns a list of keyword/value
 parameter pairs"
   (if (register-groups-bind
-       (parm-name parm-value rest)
-       (";\\s*(.*?)=\"?([^;\"\\s]*)\"?[\\s]*(;?.*)" parm-string)
+       (parm-name parm-value pv2 rest)
+       (";\\s*(.*?)=(?:([^()<>@,;:\\\\\"/\\]\\[?=\\s]+)|(?:\"((?:[^\\\\\"]|(?:\\\\.))*)\")(;.*))" parm-string)
        
        (setq parm-string rest)
-       (setq parms (cons (list (ensure-keyword parm-name) parm-value)
+       (setq parms (cons (list (ensure-keyword parm-name)
+			       (or parm-value
+				   (regex-replace-all '(:SEQUENCE #\\ (:REGISTER :EVERYTHING)) pv2 '(0))))
 			 parms)))
   
       (extract-parms parm-string parms)
