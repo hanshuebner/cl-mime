@@ -32,11 +32,11 @@
   :maintainer "Robert Marlow <bobstopper@bobturf.org>"
   :depends-on (:cl-ppcre :cl-base64 :cl-qprint)
   :serial t
-  :components
-  ((:file "package")
-   (:file "utilities")
-   (:file "classes")
-   (:file "headers")
-   (:file "encoding")
-   (:file "parse-mime")
-   (:file "print-mime")))
+  :components ((:file "package")
+               (:file "utilities")
+               (:file "classes")
+               (:file "headers")
+               (:file "encoding")
+               (:file "parse-mime")
+               (:file "print-mime"))
+  :in-order-to ((test-op (test-op "cl-mime-test"))))

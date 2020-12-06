@@ -49,49 +49,50 @@ object representing it or nil if the message is not MIME compatible"))
 	   (boundary nil)
 	   (mime-version (or (header-value (assoc :mime-version headers)) "1.0"))
 	   (mime-type (cond
-		       ((equal content-type "text") 'text-mime)
-		       ((equal content-type "multipart") 'multipart-mime)
-		       (t 'mime))))
+		        ((equal content-type "text") 'text-mime)
+		        ((equal content-type "multipart") 'multipart-mime)
+		        (t 'mime))))
 
       (if (equal mime-version "1.0")
 	
 	  (let* ((encoding (ensure-keyword (or (cdr (assoc :content-transfer-encoding headers))
                                                :7bit)))
 		 (mime-obj-gen
-		  (list
-		   mime-type
-		   :type content-type
-		   :subtype content-subtype
-		   :encoding encoding
-		   :content-encoding encoding
-		   :description (cdr (assoc :content-description
-					    headers))
-		   :id (remove #\< (remove #\> (cdr (assoc :content-id headers))))
-		   :disposition content-disposition
-		   :disposition-parameters content-disposition-parm)))
-	      
-	    (case mime-type
-	      ((text-mime)
-	       (setq mime-obj-gen
-		     (append mime-obj-gen
-			     (list
-			      :charset (cdr (assoc :charset content-parm))
-			      :parameters (delete (assoc :charset content-parm)
-						  content-parm)))))
-	      ((multipart-mime)
-	       (setq boundary (second (assoc :boundary content-parm)))
-	       (setq mime-obj-gen 
-		     (append mime-obj-gen
-			     (list
-			      :boundary boundary
-			      :parameters (delete (assoc :boundary content-parm)
-						  content-parm)
-			      :prologue (get-prologue mime boundary)))))
-						    
-	      (t (setq mime-obj-gen
-		       (append mime-obj-gen (list :parameters content-parm)))))
+                   (list
+                    mime-type
+                    :type content-type
+                    :subtype content-subtype
+                    :encoding encoding
+                    :content-encoding encoding
+                    :description (cdr (assoc :content-description
+                                             headers))
+                    :id (remove #\< (remove #\> (cdr (assoc :content-id headers))))
+                    :disposition content-disposition
+                    :disposition-parameters content-disposition-parm)))
 
-	    (setq mime-obj-gen
+	    (case mime-type
+              ((text-mime)
+               (setq mime-obj-gen
+                     (append mime-obj-gen
+                             (list
+                              :charset (cdr (assoc :charset content-parm))
+                              :parameters (delete (assoc :charset content-parm)
+                                                  content-parm)))))
+              ((multipart-mime)
+               (setq boundary (second (assoc :boundary content-parm)))
+               (let ((prologue (get-prologue mime boundary)))
+                 (setq mime-obj-gen 
+                       (append mime-obj-gen
+                               (list
+                                :boundary boundary
+                                :parameters (delete (assoc :boundary content-parm)
+                                                    content-parm)
+                                :prologue prologue)))))
+               
+              (t (setq mime-obj-gen
+                       (append mime-obj-gen (list :parameters content-parm)))))
+
+            (setq mime-obj-gen
 		  (append mime-obj-gen
 			  (list :content (parse-body mime
 						     (ensure-keyword mime-type)
@@ -105,8 +106,8 @@ object representing it or nil if the message is not MIME compatible"))
 
 	    (apply #'make-instance mime-obj-gen))
 
-	;; If we decide this isn't MIME 1.0 compatible, we just return nil.
-	nil))))
+          ;; If we decide this isn't MIME 1.0 compatible, we just return nil.
+	  nil))))
 
 (defun parse-headers (stream)
   "Parses headers from a stream and converts them into keyword/value pairs"
@@ -139,17 +140,22 @@ object representing it or nil if the message is not MIME compatible"))
   (register-groups-bind (value) ("^([^;\\s]*)" (cdr header)) value))
 
 
+(defun header-raw-params (header)
+  "Takes header cons and returns a string containining only params or nil if there is no additional params.
+  "
+  (regex-replace-all "\\(.*?\\)"
+                     (or (register-groups-bind
+                             (params)
+                             ("^[^;\\s]*(;.*)$" (cdr header))
+			   
+                           params)
+                         (return-from header-raw-params nil))
+                     ""))
+
 (defun header-parms (header)
   "Takes a header cons and returns all parameters contained within"
-  (extract-parms
-   (regex-replace-all "\\(.*?\\)"
-		      (or (register-groups-bind
-			   (params)
-			   ("^[^;\\s]*(;.*)$" (cdr header))
-			   
-			   params)
-			  (return-from header-parms nil))
-		      "")))
+  (let ((raw-params (header-raw-params header)))
+    (extract-params raw-params)))
 
 
 (defun header-comments (header)
@@ -181,12 +187,12 @@ returns all comments contained within that string"
 	 header-value)))
 
 
-(defun extract-parms (parm-string &optional parms)
+(defun extract-params (parm-string &optional parms)
   "Takes a string of parameters and returns a list of keyword/value
 parameter pairs"
   (if (register-groups-bind
        (parm-name parm-value pv2 rest)
-       (";\\s*(.*?)=(?:([^()<>@,;:\\\\\"/\\]\\[?=\\s]+)|(?:\"((?:[^\\\\\"]|(?:\\\\.))*)\")(;.*))" parm-string)
+       (";\\s*(.*?)=(?:([^()<>@,;:\\\\\"/\\]\\[?=\\s]+)|(?:\"((?:[^\\\\\"]|(?:\\\\.))*)\")(;?.*))" parm-string)
        
        (setq parm-string rest)
        (setq parms (cons (list (ensure-keyword parm-name)
@@ -194,7 +200,7 @@ parameter pairs"
 				   (regex-replace-all '(:SEQUENCE #\\ (:REGISTER :EVERYTHING)) pv2 '(0))))
 			 parms)))
   
-      (extract-parms parm-string parms)
+      (extract-params parm-string parms)
     parms))
 
 
